@@ -6,7 +6,7 @@ import torch
 import torch.optim as optim
 from torchvision.utils import save_image
 
-from Diffusion import GaussianDiffusionSampler, GaussianDiffusionTrainer
+from Diffusion import GaussianDiffusionSampler
 from Diffusion.Model import UNet
 
 def eval(modelConfig: Dict):
@@ -19,6 +19,13 @@ def eval(modelConfig: Dict):
             modelConfig["save_weight_dir"], modelConfig["test_load_weight"]), map_location=device)
         model.load_state_dict(ckpt)
         print("model load weight done.")
+        
+        desired_labels = []
+        for i in range(10):
+            for _ in range(8):
+                desired_labels.append(i)
+        desired_labels = torch.tensor(desired_labels).to(device)
+
         model.eval()
         sampler = GaussianDiffusionSampler(
             model, modelConfig["beta_1"], modelConfig["beta_T"], modelConfig["T"]).to(device)
@@ -28,15 +35,15 @@ def eval(modelConfig: Dict):
         saveNoisy = torch.clamp(noisyImage * 0.5 + 0.5, 0, 1)
         save_image(saveNoisy, os.path.join(
             modelConfig["sampled_dir"], modelConfig["sampledNoisyImgName"]), nrow=modelConfig["nrow"])
-        sampledImgs = sampler(noisyImage)
+        sampledImgs = sampler(noisyImage, desired_labels) # x_T, labels
         sampledImgs = sampledImgs * 0.5 + 0.5  # [0 ~ 1]
         save_image(sampledImgs, os.path.join(
             modelConfig["sampled_dir"],  modelConfig["sampledImgName"]), nrow=modelConfig["nrow"])
 
 def main(model_config = None):
     modelConfig = {
-        "state": "train", # or eval
-        "epoch": 200,
+        "state": "eval", # or eval
+        "epoch": 20,
         "batch_size": 80,
         "T": 1000,
         "channel": 128,
@@ -53,7 +60,7 @@ def main(model_config = None):
         "device": "cuda:0", ### MAKE SURE YOU HAVE A GPU !!!
         "training_load_weight": None,
         "save_weight_dir": "./Checkpoints/",
-        "test_load_weight": "ckpt_199_.pt",
+        "test_load_weight": "ckpt_13_.pt",
         "sampled_dir": "./SampledImgs/",
         "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
         "sampledImgName": "SampledNoGuidenceImgs.png",
